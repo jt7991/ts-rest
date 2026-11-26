@@ -2,7 +2,10 @@ import '@testing-library/jest-dom';
 import {
   QueryClient,
   QueryClientProvider,
+  dehydrate,
+  hydrate,
   skipToken,
+  useQueries,
 } from '@tanstack/react-query';
 import {
   waitFor,
@@ -205,9 +208,7 @@ describe('react-query', () => {
 
     const { result } = renderHook(
       () => {
-        return tsr.health.useQuery({
-          queryKey: ['health'],
-        });
+        return tsr.health.useQuery({});
       },
       {
         wrapper: ReactQueryProvider,
@@ -243,7 +244,6 @@ describe('react-query', () => {
     const { result } = renderHook(
       () => {
         return tsr.health.useQuery({
-          queryKey: ['health'],
           queryData: skipToken,
         });
       },
@@ -269,7 +269,6 @@ describe('react-query', () => {
     const { result } = renderHook(
       () => {
         return tsr.posts.getPost.useQuery({
-          queryKey: ['posts', '1'],
           queryData: {
             params: {
               id: '1',
@@ -368,8 +367,8 @@ describe('react-query', () => {
     const { result } = renderHook(
       () => {
         return tsr.posts.getPosts.useInfiniteQuery({
-          queryKey: ['posts'],
-          queryData: ({ pageParam }) => ({
+          queryData: { query: { skip: 0, take: PAGE_SIZE } },
+          getPageQueryData: ({ pageParam }) => ({
             query: {
               skip: pageParam.skip,
               take: pageParam.take,
@@ -431,7 +430,6 @@ describe('react-query', () => {
       () => {
         const tsrQueryClient = tsr.useQueryClient();
         return tsrQueryClient.posts.getPosts.prefetchInfiniteQuery({
-          queryKey: ['posts'],
           queryData: {
             query: {
               skip: 0,
@@ -469,8 +467,8 @@ describe('react-query', () => {
     const { result } = renderHook(
       () => {
         return tsr.posts.getPosts.useInfiniteQuery({
-          queryKey: ['posts'],
-          queryData: ({ pageParam }) => ({
+          queryData: { query: { skip: 0, take: PAGE_SIZE } },
+          getPageQueryData: ({ pageParam }) => ({
             query: {
               skip: pageParam.skip,
               take: pageParam.take,
@@ -510,9 +508,7 @@ describe('react-query', () => {
 
     const { result } = renderHook(
       () => {
-        return tsr.health.useSuspenseQuery({
-          queryKey: ['health'],
-        });
+        return tsr.health.useSuspenseQuery({});
       },
       {
         wrapper: ReactQueryProvider,
@@ -545,7 +541,6 @@ describe('react-query', () => {
     const { result } = renderHook(
       () => {
         return tsr.health.useQuery({
-          queryKey: ['health'],
           select: (data) => data.body.message,
         });
       },
@@ -585,7 +580,6 @@ describe('react-query', () => {
     const { result } = renderHook(
       () => {
         return tsr.posts.getPost.useQuery({
-          queryKey: ['post', '1'],
           queryData: {
             params: {
               id: '1',
@@ -626,7 +620,6 @@ describe('react-query', () => {
     const { result } = renderHook(
       () => {
         return tsr.posts.getPost.useQuery({
-          queryKey: ['post', '1'],
           queryData: {
             params: {
               id: '1',
@@ -671,7 +664,6 @@ describe('react-query', () => {
     const { result } = renderHook(
       () => {
         return tsr.posts.getPost.useQuery({
-          queryKey: ['post', '1'],
           queryData: {
             params: {
               id: '1',
@@ -714,9 +706,7 @@ describe('react-query', () => {
 
     const { result } = renderHook(
       () => {
-        return tsr.health.useQuery({
-          queryKey: ['health'],
-        });
+        return tsr.health.useQuery({});
       },
       {
         wrapper: ReactQueryProvider,
@@ -756,7 +746,6 @@ describe('react-query', () => {
     const { result } = renderHook(
       () => {
         return tsr.health.useQuery({
-          queryKey: ['health'],
           retry: false,
         });
       },
@@ -796,7 +785,6 @@ describe('react-query', () => {
     const { result } = renderHook(
       () => {
         return tsr.health.useSuspenseQuery({
-          queryKey: ['health'],
           retry: false,
         });
       },
@@ -828,7 +816,6 @@ describe('react-query', () => {
     renderHook(
       () => {
         return tsr.health.useSuspenseQuery({
-          queryKey: ['health'],
           // @ts-expect-error - skipToken is not allowed in suspense
           queryData: skipToken,
         });
@@ -908,7 +895,6 @@ describe('react-query', () => {
         return tsr.posts.getPost.useQueries({
           queries: [
             {
-              queryKey: ['posts', '1'],
               queryData: {
                 params: {
                   id: '1',
@@ -916,7 +902,6 @@ describe('react-query', () => {
               },
             },
             {
-              queryKey: ['posts', '2'],
               queryData: {
                 params: {
                   id: '2',
@@ -983,7 +968,6 @@ describe('react-query', () => {
         return tsr.posts.getPost.useQueries({
           queries: [
             {
-              queryKey: ['posts', '1'],
               queryData: {
                 params: {
                   id: '1',
@@ -991,7 +975,6 @@ describe('react-query', () => {
               },
             },
             {
-              queryKey: ['posts', '2'],
               queryData: skipToken,
             },
           ],
@@ -1042,13 +1025,11 @@ describe('react-query', () => {
         return tsr.posts.getPosts.useQueries({
           queries: [
             {
-              queryKey: ['posts', '1'],
               queryData: {
                 query: { take: 10 },
               },
             },
             {
-              queryKey: ['posts', '2'],
               queryData: {
                 query: { skip: 10, take: 10 },
               },
@@ -1090,13 +1071,11 @@ describe('react-query', () => {
         return tsr.posts.getPosts.useQueries({
           queries: [
             {
-              queryKey: ['posts', '1'],
               queryData: {
                 query: { take: 10 },
               },
             },
             {
-              queryKey: ['posts', '2'],
               queryData: {
                 query: { skip: 10, take: 10 },
               },
@@ -1133,7 +1112,6 @@ describe('react-query', () => {
         return tsr.posts.getPost.useSuspenseQueries({
           queries: [
             {
-              queryKey: ['posts', '1'],
               queryData: {
                 params: {
                   id: '1',
@@ -1141,7 +1119,6 @@ describe('react-query', () => {
               },
             },
             {
-              queryKey: ['posts', '2'],
               queryData: {
                 params: {
                   id: '2',
@@ -1199,7 +1176,6 @@ describe('react-query', () => {
         return tsr.posts.getPost.useQueries({
           queries: [
             {
-              queryKey: ['posts', '1'],
               queryData: {
                 params: {
                   id: '1',
@@ -1208,7 +1184,6 @@ describe('react-query', () => {
               retry: false,
             },
             {
-              queryKey: ['posts', '2'],
               queryData: {
                 params: {
                   id: '2',
@@ -1285,7 +1260,6 @@ describe('react-query', () => {
         return tsr.posts.getPost.useQueries({
           queries: [
             {
-              queryKey: ['posts', '1'],
               queryData: {
                 params: {
                   id: '1',
@@ -1294,7 +1268,6 @@ describe('react-query', () => {
               retry: false,
             },
             {
-              queryKey: ['posts', '2'],
               queryData: {
                 params: {
                   id: '2',
@@ -1367,7 +1340,6 @@ describe('react-query', () => {
       () => {
         const queryClient = tsr.useQueryClient();
         return queryClient.posts.getPost.fetchQuery({
-          queryKey: ['post', '1'],
           queryData: {
             params: {
               id: '1',
@@ -1403,7 +1375,6 @@ describe('react-query', () => {
         try {
           const queryClient = tsr.useQueryClient();
           return await queryClient.posts.getPost.fetchQuery({
-            queryKey: ['post', '1'],
             queryData: {
               params: {
                 id: '1',
@@ -1443,7 +1414,6 @@ describe('react-query', () => {
       () => {
         const queryClient = tsr.useQueryClient();
         return queryClient.posts.getPost.prefetchQuery({
-          queryKey: ['post', '1'],
           queryData: {
             params: {
               id: '1',
@@ -1471,13 +1441,182 @@ describe('react-query', () => {
     });
   });
 
+  it('uses the generated key when a hook receives an explicit key at runtime', async () => {
+    api.mockResolvedValue(SUCCESS_RESPONSE);
+
+    const route = tsr.posts.getPosts;
+    const options = {
+      queryData: { query: { take: 10 } },
+      queryKey: ['custom'],
+    };
+    const { result } = renderHook(
+      () => {
+        // @ts-expect-error Hook options reject explicit keys even through variables.
+        return route.useQuery(options);
+      },
+      { wrapper: ReactQueryProvider },
+    );
+
+    await waitFor(() => expect(result.current.data).toEqual(SUCCESS_RESPONSE));
+    expect(
+      queryClient.getQueryData(route.getQueryKey(options.queryData)),
+    ).toEqual(SUCCESS_RESPONSE);
+    expect(queryClient.getQueryData(options.queryKey)).toBeUndefined();
+  });
+
+  it('uses the generated key when prefetch receives an explicit key at runtime', async () => {
+    api.mockResolvedValue(SUCCESS_RESPONSE);
+
+    const route = tsr.initQueryClient(queryClient).posts.getPosts;
+    const options = {
+      queryData: { query: { take: 10 } },
+      queryKey: ['custom'],
+    };
+
+    // @ts-expect-error Prefetch options reject explicit keys even through variables.
+    await route.prefetchQuery(options);
+
+    expect(route.getQueryData(options.queryData)).toEqual(SUCCESS_RESPONSE);
+    expect(queryClient.getQueryData(options.queryKey)).toBeUndefined();
+  });
+
+  it('invalidates only generated keys for the route and matching request data', async () => {
+    api.mockResolvedValue(SUCCESS_RESPONSE);
+
+    const client = tsr.initQueryClient(queryClient);
+    const route = client.posts.getPosts;
+    const firstPage = { query: { take: 10, skip: 0 } };
+    const secondPage = { query: { take: 10, skip: 10 } };
+    const differentPageSize = { query: { take: 20, skip: 0 } };
+    const unrelatedKey = ['custom-posts'];
+    queryClient.setQueryData(unrelatedKey, SUCCESS_RESPONSE);
+    await Promise.all([
+      route.fetchQuery({ queryData: firstPage }),
+      route.fetchQuery({ queryData: secondPage }),
+      route.fetchQuery({ queryData: differentPageSize }),
+      client.health.fetchQuery({}),
+    ]);
+
+    await route.invalidateQueries({ query: { take: 10 } });
+
+    expect(route.getQueryState(firstPage)?.isInvalidated).toBe(true);
+    expect(route.getQueryState(secondPage)?.isInvalidated).toBe(true);
+    expect(route.getQueryState(differentPageSize)?.isInvalidated).toBe(false);
+
+    await route.invalidateQueries();
+
+    expect(route.getQueryState(differentPageSize)?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(unrelatedKey)?.isInvalidated).toBe(false);
+    expect(client.health.getQueryState()?.isInvalidated).toBe(false);
+  });
+
+  it('hydrates a generated key from server prefetch into a client hook', async () => {
+    const response = { status: 200, body: { id: '1', title: 'Post' } };
+    api.mockResolvedValue(response);
+
+    const queryData = { params: { id: '1' } };
+    const serverClient = tsr.initQueryClient(new QueryClient());
+    await serverClient.posts.getPost.prefetchQuery({ queryData });
+    const state = JSON.parse(JSON.stringify(dehydrate(serverClient)));
+    hydrate(queryClient, state);
+
+    const { result } = renderHook(
+      () => tsr.posts.getPost.useQuery({ queryData, staleTime: Infinity }),
+      { wrapper: ReactQueryProvider },
+    );
+
+    expect(state.queries[0].queryKey).toEqual(['posts.getPost', queryData]);
+    expect(result.current.data).toEqual(response);
+    expect(api).toHaveBeenCalledTimes(1);
+  });
+
+  it('combines options from different routes and reuses prefetched data', async () => {
+    api.mockResolvedValueOnce({
+      status: 200,
+      body: { title: 'First post' },
+    });
+    api.mockResolvedValueOnce({ status: 200, body: { message: 'Healthy' } });
+
+    const queryData = { params: { id: '1' } };
+    const postOptions = tsr.posts.getPost.queryOptions({
+      queryData,
+      staleTime: Infinity,
+    });
+    await queryClient.prefetchQuery(postOptions);
+    expect(queryClient.getQueryData(postOptions.queryKey)?.body.title).toBe(
+      'First post',
+    );
+
+    const { result } = renderHook(
+      () => {
+        const combined = useQueries({
+          queries: [
+            postOptions,
+            tsr.health.queryOptions({ select: (data) => data.body.message }),
+          ],
+          combine: ([post, health]) => ({
+            title: post.data?.body.title,
+            health: health.data,
+          }),
+        });
+        const post = tsr.posts.getPost.useQuery({
+          queryData,
+          staleTime: Infinity,
+        });
+
+        return { combined, postTitle: post.data?.body.title };
+      },
+      { wrapper: ReactQueryProvider },
+    );
+
+    await waitFor(() =>
+      expect(result.current).toEqual({
+        combined: { title: 'First post', health: 'Healthy' },
+        postTitle: 'First post',
+      }),
+    );
+    expect(api).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps generated regular and infinite query cache entries separate', async () => {
+    api.mockResolvedValue(SUCCESS_RESPONSE);
+
+    const route = tsr.initQueryClient(queryClient).posts.getPosts;
+    const queryData = { query: { take: 10, skip: 0 } };
+    await route.fetchQuery({ queryData });
+    await route.prefetchInfiniteQuery({
+      queryData,
+      initialPageParam: 0,
+      getPageQueryData: ({ pageParam }) => ({
+        query: { take: 10, skip: pageParam },
+      }),
+      getNextPageParam: (_lastPage, allPages) => allPages.length * 10,
+      pages: 2,
+      staleTime: Infinity,
+    });
+
+    expect(route.getQueryData(queryData)).toEqual(SUCCESS_RESPONSE);
+    const infiniteKey = tsr.posts.getPosts.getQueryKey(queryData, 'infinite');
+    expect(queryClient.getQueryData(infiniteKey)).toEqual({
+      pages: [SUCCESS_RESPONSE, SUCCESS_RESPONSE],
+      pageParams: [0, 10],
+    });
+    expect(api).toHaveBeenLastCalledWith(
+      expect.objectContaining({ rawQuery: { take: 10, skip: 10 } }),
+    );
+
+    await route.invalidateQueries({ query: { take: 10 } });
+
+    expect(route.getQueryState(queryData)?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(infiniteKey)?.isInvalidated).toBe(true);
+  });
+
   it('getQueryData should return already fetched data', async () => {
     api.mockResolvedValue(SUCCESS_RESPONSE);
 
     renderHook(
       () => {
         return tsr.posts.getPost.useQuery({
-          queryKey: ['post', '1'],
           queryData: {
             params: {
               id: '1',
@@ -1495,7 +1634,7 @@ describe('react-query', () => {
     const { result } = renderHook(
       () => {
         const queryClient = tsr.useQueryClient();
-        return queryClient.posts.getPost.getQueryData(['post', '1']);
+        return queryClient.posts.getPost.getQueryData({ params: { id: '1' } });
       },
       {
         wrapper: ReactQueryProvider,
@@ -1542,7 +1681,6 @@ describe('react-query', () => {
     renderHook(
       () => {
         tsr.posts.getPost.useQuery({
-          queryKey: ['post', '1'],
           queryData: {
             params: {
               id: '1',
@@ -1561,7 +1699,10 @@ describe('react-query', () => {
     renderHook(
       () => {
         const queryClient = tsr.useQueryClient();
-        return queryClient.posts.getPost.setQueryData(['post', '1'], data);
+        return queryClient.posts.getPost.setQueryData(
+          { params: { id: '1' } },
+          data,
+        );
       },
       {
         wrapper: ReactQueryProvider,
@@ -1571,7 +1712,6 @@ describe('react-query', () => {
     const { result } = renderHook(
       () => {
         return tsr.posts.getPost.useQuery({
-          queryKey: ['post', '1'],
           queryData: {
             params: {
               id: '1',
@@ -1597,7 +1737,6 @@ describe('react-query', () => {
     renderHook(
       () => {
         return tsr.posts.getPost.useQuery({
-          queryKey: ['post', '1'],
           queryData: {
             params: {
               id: '1',
@@ -1615,7 +1754,9 @@ describe('react-query', () => {
     renderHook(
       () => {
         const queryClient = tsr.useQueryClient();
-        return queryClient.removeQueries({ queryKey: ['post', '1'] });
+        return queryClient.removeQueries({
+          queryKey: tsr.posts.getPost.getQueryKey({ params: { id: '1' } }),
+        });
       },
       {
         wrapper: ReactQueryProvider,
@@ -1625,7 +1766,7 @@ describe('react-query', () => {
     const { result } = renderHook(
       () => {
         const queryClient = tsr.useQueryClient();
-        return queryClient.posts.getPost.getQueryData(['post', '1']);
+        return queryClient.posts.getPost.getQueryData({ params: { id: '1' } });
       },
       {
         wrapper: ReactQueryProvider,
@@ -1657,7 +1798,6 @@ describe('react-query', () => {
     renderHook(
       () => {
         return tsr.posts.getPost.useQuery({
-          queryKey: ['post', '1'],
           queryData: {
             params: {
               id: '1',
@@ -1676,7 +1816,9 @@ describe('react-query', () => {
       renderHook(
         () => {
           const queryClient = tsr.useQueryClient();
-          return queryClient.refetchQueries({ queryKey: ['post', '1'] });
+          return queryClient.refetchQueries({
+            queryKey: tsr.posts.getPost.getQueryKey({ params: { id: '1' } }),
+          });
         },
         {
           wrapper: ReactQueryProvider,

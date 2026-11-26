@@ -58,6 +58,10 @@ const getMethodDecorator = (appRoute: AppRoute) => {
   switch (appRoute.method) {
     case 'DELETE':
       return Delete(appRoute.path);
+    case 'QUERY':
+      throw new Error(
+        '[ts-rest] HTTP QUERY is unsupported by the Nest adapter',
+      );
     case 'GET':
       return Get(appRoute.path);
     case 'POST':

@@ -4,7 +4,6 @@ import { tsr } from '../../react-query-utils/tsr';
 
 export function ClientComponentSuspense() {
   const { data } = tsr.test.useSuspenseQuery({
-    queryKey: ['TEST_SUSPENSE'],
     queryData: {
       params: { id: 1 },
       query: { foo: 'test', bar: 123 },

@@ -2,9 +2,7 @@ import React from 'react';
 import { tsr } from './main';
 
 export const App = () => {
-  const { data } = tsr.getPosts.useQuery({
-    queryKey: ['posts'],
-  });
+  const { data } = tsr.getPosts.useQuery({});
 
   const posts = data?.body || [];
 

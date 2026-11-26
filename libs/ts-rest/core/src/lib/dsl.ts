@@ -70,11 +70,17 @@ type AppRouteCommon = {
 };
 
 /**
- * A query endpoint. In REST terms, one using GET.
+ * A read-only HTTP QUERY endpoint with a request body.
  */
-export type AppRouteQuery = AppRouteCommon & {
-  method: 'GET';
+export type AppRouteQueryWithBody = AppRouteCommon & {
+  method: 'QUERY';
+  contentType?: 'application/json';
+  body: ContractAnyType | ContractNoBodyType;
 };
+
+export type AppRouteQuery =
+  | (AppRouteCommon & { method: 'GET' })
+  | AppRouteQueryWithBody;
 
 /**
  * A mutation endpoint. In REST terms, one using POST, PUT,
@@ -330,6 +336,8 @@ export type UnknownToUndefined<T> = unknown extends T
 /**
  * A union of all possible endpoint types.
  */
+export type AppRouteWithBody = AppRouteMutation | AppRouteQueryWithBody;
+
 export type AppRoute = AppRouteQuery | AppRouteMutation | AppRouteDeleteNoBody;
 export type AppRouteStrictStatusCodes = Omit<AppRoute, 'strictStatusCodes'> & {
   strictStatusCodes: true;
@@ -378,7 +386,7 @@ export const isAppRoute = (obj: AppRoute | AppRouter): obj is AppRoute => {
 };
 
 export const isAppRouteQuery = (route: AppRoute): route is AppRouteQuery => {
-  return route.method === 'GET';
+  return route.method === 'GET' || route.method === 'QUERY';
 };
 
 export const isAppRouteMutation = (

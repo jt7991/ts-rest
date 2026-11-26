@@ -8,7 +8,6 @@ export default async function Test() {
   const tsrQueryClient = tsr.initQueryClient(getQueryClientRsc());
 
   await tsrQueryClient.test.prefetchQuery({
-    queryKey: ['TEST'],
     queryData: {
       params: { id: 1 },
       query: { foo: 'test', bar: 123 },

@@ -4,7 +4,6 @@ import { tsr } from '../../react-query-utils/tsr';
 
 export function ClientComponent() {
   const { isPending, isError, data } = tsr.test.useQuery({
-    queryKey: ['TEST'],
     queryData: {
       params: { id: 1 },
       query: { foo: 'test', bar: 123 },

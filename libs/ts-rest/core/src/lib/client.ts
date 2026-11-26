@@ -1,6 +1,6 @@
 import {
   AppRoute,
-  AppRouteMutation,
+  AppRouteWithBody,
   AppRouter,
   ContractNoBody,
   isAppRoute,
@@ -14,7 +14,7 @@ import {
   ClientInferResponses,
   PartialClientInferRequest,
 } from './infer-types';
-import { Equal, Expect } from './test-helpers';
+import { Expect } from './test-helpers';
 import {
   isStandardSchema,
   parseAsStandardSchema,
@@ -82,7 +82,7 @@ export type ApiFetcherArgs<TFetchOptions extends FetchOptions = FetchOptions> =
     body: FormData | URLSearchParams | string | null | undefined;
     rawBody: unknown;
     rawQuery: unknown;
-    contentType: AppRouteMutation['contentType'];
+    contentType: AppRouteWithBody['contentType'];
     fetchOptions?: FetchOptions;
     validateResponse?: boolean;
 
@@ -331,7 +331,7 @@ export const fetchApi = (options: FetchApiOptions) => {
 export const evaluateFetchApiArgs = <TAppRoute extends AppRoute>(
   route: TAppRoute,
   clientArgs: InitClientArgs,
-  inputArgs?: ClientInferRequest<AppRouteMutation, ClientArgs>,
+  inputArgs?: ClientInferRequest<AppRouteWithBody, ClientArgs>,
 ) => {
   const {
     query,
@@ -351,13 +351,15 @@ export const evaluateFetchApiArgs = <TAppRoute extends AppRoute>(
     // extra input args
     ...extraInputArgs
   } =
-    (inputArgs as ClientInferRequest<AppRouteMutation, ClientArgs> & {
+    (inputArgs as ClientInferRequest<AppRouteWithBody, ClientArgs> & {
       next?: any;
     }) || {};
 
   // assert that we removed all non-extra args
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  type AssertExtraInputArgsEmpty = Expect<Equal<typeof extraInputArgs, {}>>;
+  type AssertExtraInputArgsEmpty = Expect<
+    typeof extraInputArgs extends Record<string, never> ? true : false
+  >;
 
   const overriddenClientArgs = {
     ...clientArgs,
@@ -430,7 +432,7 @@ export const getRouteQuery = <TAppRoute extends AppRoute>(
 ) => {
   const knownResponseStatuses = Object.keys(route.responses);
   return async (
-    inputArgs?: ClientInferRequest<AppRouteMutation, ClientArgs>,
+    inputArgs?: ClientInferRequest<AppRouteWithBody, ClientArgs>,
   ) => {
     const fetchApiArgs = evaluateFetchApiArgs(route, clientArgs, inputArgs);
     const response = await fetchApi(fetchApiArgs);

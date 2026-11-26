@@ -1,7 +1,9 @@
 import {
   InfiniteData,
+  QueryFunction,
   QueryFunctionContext,
   QueryKey,
+  queryOptions,
   UseInfiniteQueryOptions as TanStackUseInfiniteQueryOptions,
   UseMutationOptions as TanStackUseMutationOptions,
   UseQueryOptions as TanStackUseQueryOptions,
@@ -25,7 +27,7 @@ export type TsRestQueryOptions<
   TQueryData,
   { queryData?: TQueryData | SkipToken },
   { queryData: TQueryData | SkipToken }
->;
+> & { queryKey?: never };
 
 export type TsRestSuspenseQueryOptions<
   TAppRoute extends AppRoute,
@@ -35,28 +37,30 @@ export type TsRestSuspenseQueryOptions<
   TQueryData,
   { queryData?: TQueryData },
   { queryData: TQueryData }
->;
+> & { queryKey?: never };
+
+type PageQueryData<
+  TAppRoute extends AppRoute,
+  TClientArgs extends ClientArgs,
+  TPageParam,
+> = (
+  context: QueryFunctionContext<QueryKey, TPageParam>,
+) => RequestData<TAppRoute, TClientArgs>;
 
 export type TsRestInfiniteQueryOptions<
   TAppRoute extends AppRoute,
   TClientArgs extends ClientArgs,
   TPageParam = unknown,
-> = {
-  queryData:
-    | ((
-        context: QueryFunctionContext<QueryKey, TPageParam>,
-      ) => RequestData<TAppRoute, TClientArgs>)
-    | SkipToken;
+> = TsRestQueryOptions<TAppRoute, TClientArgs> & {
+  getPageQueryData?: PageQueryData<TAppRoute, TClientArgs, TPageParam>;
 };
 
 export type TsRestSuspenseInfiniteQueryOptions<
   TAppRoute extends AppRoute,
   TClientArgs extends ClientArgs,
   TPageParam = unknown,
-> = {
-  queryData: (
-    context: QueryFunctionContext<QueryKey, TPageParam>,
-  ) => RequestData<TAppRoute, TClientArgs>;
+> = TsRestSuspenseQueryOptions<TAppRoute, TClientArgs> & {
+  getPageQueryData?: PageQueryData<TAppRoute, TClientArgs, TPageParam>;
 };
 
 export type UseQueryOptions<
@@ -69,7 +73,7 @@ export type UseQueryOptions<
     ErrorResponse<TAppRoute>,
     TData
   >,
-  'queryFn'
+  'queryFn' | 'queryKey'
 > &
   TsRestQueryOptions<TAppRoute, TClientArgs>;
 
@@ -87,6 +91,17 @@ export type UseQueryOptionsWithoutInitialData<
   TData = DataResponse<TAppRoute>,
 > = UseQueryOptions<TAppRoute, TClientArgs, TData> & {
   initialData?: undefined;
+};
+
+export type QueryOptionsResult<
+  TAppRoute extends AppRoute,
+  TOptions,
+  TSkipToken extends SkipToken = SkipToken,
+> = Omit<TOptions, 'queryData' | 'queryKey'> & {
+  queryKey: ReturnType<
+    typeof queryOptions<DataResponse<TAppRoute>, ErrorResponse<TAppRoute>>
+  >['queryKey'];
+  queryFn: QueryFunction<DataResponse<TAppRoute>> | TSkipToken;
 };
 
 export type UseQueriesOptions<
@@ -119,7 +134,7 @@ export type UseSuspenseQueryOptions<
     ErrorResponse<TAppRoute>,
     TData
   >,
-  'queryFn'
+  'queryFn' | 'queryKey'
 > &
   TsRestSuspenseQueryOptions<TAppRoute, TClientArgs>;
 
@@ -137,7 +152,7 @@ export type UseInfiniteQueryOptions<
     QueryKey,
     TPageParam
   >,
-  'queryFn'
+  'queryFn' | 'queryKey'
 > &
   TsRestInfiniteQueryOptions<TAppRoute, TClientArgs, TPageParam>;
 
@@ -175,7 +190,7 @@ export type UseSuspenseInfiniteQueryOptions<
     QueryKey,
     TPageParam
   >,
-  'queryFn'
+  'queryFn' | 'queryKey'
 > &
   TsRestSuspenseInfiniteQueryOptions<TAppRoute, TClientArgs, TPageParam>;
 

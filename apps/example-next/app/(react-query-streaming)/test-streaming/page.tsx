@@ -11,7 +11,6 @@ export default function Test() {
 
   // no await here, so this will stream
   tsrQueryClient.test.prefetchQuery({
-    queryKey: ['TEST_SUSPENSE'],
     queryData: {
       params: { id: 1 },
       query: { foo: 'test', bar: 123 },

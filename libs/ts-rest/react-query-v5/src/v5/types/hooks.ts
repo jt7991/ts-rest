@@ -7,7 +7,10 @@ import {
   QueryClient,
 } from '@tanstack/react-query';
 import {
+  QueryOptionsResult,
+  TsRestInfiniteQueryOptions,
   TsRestQueryOptions,
+  TsRestSuspenseQueryOptions,
   UseInfiniteQueryOptions,
   UseInfiniteQueryOptionsWithInitialData,
   UseInfiniteQueryOptionsWithoutInitialData,
@@ -20,7 +23,12 @@ import {
   UseSuspenseQueriesOptions,
   UseSuspenseQueryOptions,
 } from './hooks-options';
-import { DataResponse, ErrorResponse, RequestData } from './common';
+import {
+  DataResponse,
+  ErrorResponse,
+  WithoutQueryKey,
+  RequestData,
+} from './common';
 import {
   DefinedUseInfiniteQueryResult,
   DefinedUseQueryResult,
@@ -40,6 +48,36 @@ export interface QueryHooks<
   TError = ErrorResponse<TAppRoute>,
 > {
   query: AppRouteFunction<TAppRoute, TClientArgs>;
+
+  getQueryKey(
+    queryData?: RequestData<TAppRoute, TClientArgs>,
+    type?: 'infinite',
+  ): QueryKey;
+
+  queryOptions<TData = TQueryFnData>(
+    options: UseQueryOptionsWithInitialData<TAppRoute, TClientArgs, TData> &
+      TsRestSuspenseQueryOptions<TAppRoute, TClientArgs>,
+  ): QueryOptionsResult<
+    TAppRoute,
+    UseQueryOptionsWithInitialData<TAppRoute, TClientArgs, TData>,
+    never
+  >;
+
+  queryOptions<TData = TQueryFnData>(
+    options: UseQueryOptions<TAppRoute, TClientArgs, TData> &
+      TsRestSuspenseQueryOptions<TAppRoute, TClientArgs>,
+  ): QueryOptionsResult<
+    TAppRoute,
+    UseQueryOptions<TAppRoute, TClientArgs, TData>,
+    never
+  >;
+
+  queryOptions<TData = TQueryFnData>(
+    options: UseQueryOptions<TAppRoute, TClientArgs, TData>,
+  ): QueryOptionsResult<
+    TAppRoute,
+    UseQueryOptions<TAppRoute, TClientArgs, TData>
+  >;
 
   useQuery<TData = TQueryFnData>(
     options: UseQueryOptionsWithInitialData<TAppRoute, TClientArgs, TData>,
@@ -121,19 +159,21 @@ export interface QueryHooks<
   ): UseSuspenseInfiniteQueryResult<TAppRoute, TData, TError>;
 
   usePrefetchQuery<TData = TQueryFnData>(
-    options: FetchQueryOptions<TQueryFnData, TError, TData> &
+    options: WithoutQueryKey<FetchQueryOptions<TQueryFnData, TError, TData>> &
       TsRestQueryOptions<TAppRoute, TClientArgs>,
   ): void;
 
   usePrefetchInfiniteQuery<TData = TQueryFnData, TPageParam = unknown>(
-    options: FetchInfiniteQueryOptions<
-      TQueryFnData,
-      TError,
-      TData,
-      QueryKey,
-      TPageParam
+    options: WithoutQueryKey<
+      FetchInfiniteQueryOptions<
+        TQueryFnData,
+        TError,
+        TData,
+        QueryKey,
+        TPageParam
+      >
     > &
-      TsRestQueryOptions<TAppRoute, TClientArgs>,
+      TsRestInfiniteQueryOptions<TAppRoute, TClientArgs, TPageParam>,
   ): void;
 }
 

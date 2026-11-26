@@ -7,7 +7,6 @@ export const Post = ({ postId }: { postId: string }) => {
   const router = useRouter();
 
   const { data, error, isPending } = tsr.getPost.useQuery({
-    queryKey: ['post', postId],
     queryData: { params: { id: postId } },
     networkMode: 'offlineFirst',
     enabled: postId !== undefined,

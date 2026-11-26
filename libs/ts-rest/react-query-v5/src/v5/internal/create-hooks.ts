@@ -30,7 +30,6 @@ import {
   QueryHooks,
   TsRestReactQueryHooksContainer,
   TsRestInfiniteQueryOptions,
-  TsRestQueryOptions,
   TsRestQueryClientFunctions,
   TsRestReactQueryClientFunctionsContainer,
   TsRestReactQueryClient,
@@ -66,31 +65,49 @@ const apiFetcher = <TAppRoute extends AppRoute, TClientArgs extends ClientArgs>(
   };
 };
 
+const createQueryKey = (
+  routePath: string,
+  queryData: unknown,
+  type?: 'infinite',
+): QueryKey => {
+  // A skipped query must not observe the cache entry for a request without data.
+  const key = [routePath, queryData === skipToken ? 'skipToken' : queryData];
+  return type === 'infinite' ? [...key, type] : key;
+};
+
+const createRouteFilterKey = (
+  routePath: string,
+  queryData?: unknown,
+): QueryKey => (queryData === undefined ? [routePath] : [routePath, queryData]);
+
 function createBaseQueryOptions<
   TAppRoute extends AppRoute,
   TClientArgs extends ClientArgs,
   TOptions extends QueryOptions<any, any>,
->(route: TAppRoute, clientArgs: TClientArgs, options: TOptions): TOptions {
-  const { queryData: queryDataOrFunction, ...rqOptions } =
+>(
+  route: TAppRoute,
+  clientArgs: TClientArgs,
+  routePath: string,
+  options: TOptions,
+  type?: 'infinite',
+): TOptions & { queryKey: QueryKey } {
+  const { queryData, getPageQueryData, ...rqOptions } =
     options as unknown as TOptions &
-      (
-        | TsRestQueryOptions<TAppRoute, TClientArgs>
-        | TsRestInfiniteQueryOptions<TAppRoute, TClientArgs>
-      );
+      TsRestInfiniteQueryOptions<TAppRoute, TClientArgs>;
   return {
     ...rqOptions,
+    queryKey: createQueryKey(routePath, queryData, type),
     queryFn:
-      queryDataOrFunction === skipToken
+      queryData === skipToken
         ? skipToken
-        : (context?: QueryFunctionContext<QueryKey, unknown>) => {
-            const requestData =
-              typeof queryDataOrFunction === 'function'
-                ? queryDataOrFunction(context!)
-                : queryDataOrFunction;
+        : (context: QueryFunctionContext<QueryKey, unknown>) => {
+            const requestData = getPageQueryData
+              ? getPageQueryData(context)
+              : queryData;
 
-            return apiFetcher(route, clientArgs, context?.signal)(requestData);
+            return apiFetcher(route, clientArgs, context.signal)(requestData);
           },
-  } as unknown as TOptions;
+  } as unknown as TOptions & { queryKey: QueryKey };
 }
 
 const appendTsRestResult = <T, TAppRoute extends AppRoute>(
@@ -135,12 +152,12 @@ const wrapHooks = <
       ) => any,
 >(
   hooks: T,
-  getWrapper: (hook: H) => H,
+  getWrapper: (hook: H, hookName: string) => H,
 ) => {
   return Object.fromEntries(
     Object.entries(hooks).map(([hookName, hook]) => [
       hookName,
-      getWrapper(hook),
+      getWrapper(hook, hookName),
     ]),
   ) as any;
 };
@@ -151,19 +168,32 @@ const wrapAllHooks = <
 >(
   appRoute: TAppRoute,
   clientOptions: TClientArgs,
+  routePath: string,
 ) => {
   return {
-    ...wrapHooks(tanstackQueryHooks.query, (hook) => (options, queryClient) => {
-      return appendTsRestResult(
-        hook(
-          createBaseQueryOptions(appRoute, clientOptions, options),
-          queryClient,
-        ),
-        {
-          contractEndpoint: appRoute,
-        },
-      );
-    }),
+    ...wrapHooks(
+      tanstackQueryHooks.query,
+      (hook, hookName) => (options, queryClient) => {
+        return appendTsRestResult(
+          hook(
+            createBaseQueryOptions(
+              appRoute,
+              clientOptions,
+              routePath,
+              options,
+              hookName === 'useInfiniteQuery' ||
+                hookName === 'useSuspenseInfiniteQuery'
+                ? 'infinite'
+                : undefined,
+            ),
+            queryClient,
+          ),
+          {
+            contractEndpoint: appRoute,
+          },
+        );
+      },
+    ),
     ...wrapHooks(
       tanstackQueryHooks.queries,
       (hook) => (options, queryClient) => {
@@ -174,6 +204,7 @@ const wrapAllHooks = <
               createBaseQueryOptions(
                 appRoute,
                 clientOptions,
+                routePath,
                 queryOptions as any,
               ),
             ),
@@ -182,8 +213,16 @@ const wrapAllHooks = <
         );
       },
     ),
-    ...wrapHooks(tanstackQueryHooks.prefetch, (hook) => (options) => {
-      return hook(createBaseQueryOptions(appRoute, clientOptions, options));
+    ...wrapHooks(tanstackQueryHooks.prefetch, (hook, hookName) => (options) => {
+      return hook(
+        createBaseQueryOptions(
+          appRoute,
+          clientOptions,
+          routePath,
+          options,
+          hookName === 'usePrefetchInfiniteQuery' ? 'infinite' : undefined,
+        ),
+      );
     }),
   };
 };
@@ -197,16 +236,27 @@ export const initHooksContainer = <
 ): TsRestReactQueryHooksContainer<TContract, TClientArgs> => {
   const recursiveInit = <TInner extends AppRouter>(
     innerRouter: TInner,
+    parentPath = '',
   ): TsRestReactQueryHooksContainer<TInner, TClientArgs> => {
     return Object.fromEntries(
       Object.entries(innerRouter).map(([key, subRouter]) => {
+        const routePath = parentPath ? `${parentPath}.${key}` : key;
         if (isAppRoute(subRouter)) {
           if (isAppRouteQuery(subRouter)) {
             return [
               key,
               {
                 query: getRouteQuery(subRouter, clientOptions) as any,
-                ...wrapAllHooks(subRouter, clientOptions),
+                queryOptions: (options) =>
+                  createBaseQueryOptions(
+                    subRouter,
+                    clientOptions,
+                    routePath,
+                    options,
+                  ),
+                getQueryKey: (queryData, type) =>
+                  createQueryKey(routePath, queryData, type),
+                ...wrapAllHooks(subRouter, clientOptions, routePath),
               } as QueryHooks<typeof subRouter, TClientArgs>,
             ];
           } else {
@@ -229,7 +279,7 @@ export const initHooksContainer = <
             ];
           }
         } else {
-          return [key, recursiveInit(subRouter)];
+          return [key, recursiveInit(subRouter, routePath)];
         }
       }),
     );
@@ -248,52 +298,98 @@ export const initQueryClient = <
 ): TsRestReactQueryClient<TContract, TClientArgs> => {
   const recursiveInit = <TInner extends AppRouter>(
     innerRouter: TInner,
+    parentPath = '',
   ): TsRestReactQueryClientFunctionsContainer<TInner, TClientArgs> => {
     return Object.fromEntries(
       Object.entries(innerRouter).map(([key, subRouter]) => {
+        const routePath = parentPath ? `${parentPath}.${key}` : key;
         if (isAppRoute(subRouter)) {
           if (isAppRouteQuery(subRouter)) {
             return [
               key,
               {
-                getQueryData: (queryKey) => {
-                  return queryClient.getQueryData(queryKey);
+                getQueryData: (queryData) => {
+                  return queryClient.getQueryData(
+                    createQueryKey(routePath, queryData),
+                  );
+                },
+                invalidateQueries: (queryData, filters, options) => {
+                  return queryClient.invalidateQueries(
+                    {
+                      ...filters,
+                      queryKey: createRouteFilterKey(routePath, queryData),
+                    },
+                    options,
+                  );
                 },
                 ensureQueryData: (options) => {
                   return queryClient.ensureQueryData(
-                    createBaseQueryOptions(subRouter, clientOptions, options),
+                    createBaseQueryOptions(
+                      subRouter,
+                      clientOptions,
+                      routePath,
+                      options,
+                    ),
                   );
                 },
                 getQueriesData: (filters) => {
                   return queryClient.getQueriesData(filters);
                 },
-                setQueryData: (queryKey, updater, options) => {
-                  return queryClient.setQueryData(queryKey, updater, options);
+                setQueryData: (queryData, updater, options) => {
+                  return queryClient.setQueryData(
+                    createQueryKey(routePath, queryData),
+                    updater,
+                    options,
+                  );
                 },
                 setQueriesData: (filters, updater, options) => {
                   return queryClient.setQueriesData(filters, updater, options);
                 },
-                getQueryState: (queryKey) => {
-                  return queryClient.getQueryState(queryKey);
+                getQueryState: (queryData) => {
+                  return queryClient.getQueryState(
+                    createQueryKey(routePath, queryData),
+                  );
                 },
                 fetchQuery: (options) => {
                   return queryClient.fetchQuery(
-                    createBaseQueryOptions(subRouter, clientOptions, options),
+                    createBaseQueryOptions(
+                      subRouter,
+                      clientOptions,
+                      routePath,
+                      options,
+                    ),
                   );
                 },
                 prefetchQuery: (options) => {
                   return queryClient.prefetchQuery(
-                    createBaseQueryOptions(subRouter, clientOptions, options),
+                    createBaseQueryOptions(
+                      subRouter,
+                      clientOptions,
+                      routePath,
+                      options,
+                    ),
                   );
                 },
                 fetchInfiniteQuery: (options) => {
                   return queryClient.fetchInfiniteQuery(
-                    createBaseQueryOptions(subRouter, clientOptions, options),
+                    createBaseQueryOptions(
+                      subRouter,
+                      clientOptions,
+                      routePath,
+                      options,
+                      'infinite',
+                    ),
                   );
                 },
                 prefetchInfiniteQuery: (options) => {
                   return queryClient.prefetchInfiniteQuery(
-                    createBaseQueryOptions(subRouter, clientOptions, options),
+                    createBaseQueryOptions(
+                      subRouter,
+                      clientOptions,
+                      routePath,
+                      options,
+                      'infinite',
+                    ),
                   );
                 },
               } as TsRestQueryClientFunctions<typeof subRouter, TClientArgs>,
@@ -302,7 +398,7 @@ export const initQueryClient = <
             return [key, undefined];
           }
         } else {
-          return [key, recursiveInit(subRouter)];
+          return [key, recursiveInit(subRouter, routePath)];
         }
       }),
     );

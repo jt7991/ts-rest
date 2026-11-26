@@ -37,6 +37,47 @@ createExpressEndpoints(contract, router, app);
 `createExpressEndpoints` is a function that takes a contract, a corresponding router with implementations and middleware for each endpoint, and an express app, and it will
 create the corresponding express routes for each endpoint with the correct method, paths, and middleware and attach them to your express app.
 
+### HTTP QUERY
+
+Use [HTTP `QUERY`](https://www.rfc-editor.org/rfc/rfc10008.html) for a read-only endpoint that accepts a JSON request body. Install `express.json()` before mounting the routes, just as for other JSON bodies.
+
+```typescript
+const search = c.query({
+  method: 'QUERY',
+  path: '/posts/search',
+  body: z.object({ tags: z.array(z.string()) }),
+  responses: { 200: z.array(postSchema) },
+});
+```
+
+React Query v5 treats this as a query endpoint. Pass filters as `queryData.body` to include them in the generated cache key. For cross-origin browser requests, allow `QUERY` in your CORS configuration. Express requires a Node runtime that exposes the method to its router.
+
+The OpenAPI 3.0 generator represents the method under `x-oai-additionalOperations.QUERY`. The Nest and Fastify adapters in this fork do not register `QUERY` routes.
+
+### Typed Response Locals
+
+Use the second type parameter of `AppRouteImplementation` to describe the locals a controller expects from middleware. Express combines this type with any app-wide `Express.Locals` declarations.
+
+```typescript
+import type { AppRouteImplementation } from '@ts-rest/express';
+
+type PostLocals = { viewer: { id: string } };
+
+const getPost: AppRouteImplementation<
+  typeof contract.getPost,
+  PostLocals
+> = async ({ params, res }) => ({
+  status: 200,
+  body: await loadPostForViewer(params.id, res.locals.viewer.id),
+});
+
+const router = s.router(contract, {
+  getPost: { handler: getPost, middleware: [requireViewer] },
+});
+```
+
+Register middleware that populates the declared fields before the handler runs. The type parameter describes the handler's expectations.
+
 ## Options
 
 You can pass an optional options object as the last argument for `createExpressEndpoints`.

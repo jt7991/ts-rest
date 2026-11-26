@@ -30,6 +30,16 @@ export type RequestData<
   TClientArgs extends ClientArgs,
 > = Omit<PartialClientInferRequest<TAppRoute, TClientArgs>, 'cache' | 'next'>;
 
+export type WithoutQueryKey<TOptions> = TOptions extends unknown
+  ? Omit<TOptions, 'queryKey'>
+  : never;
+
+export type PartialQueryData<T> = T extends (...args: never[]) => unknown
+  ? T
+  : T extends object
+  ? { [K in keyof T]?: PartialQueryData<T[K]> }
+  : T;
+
 export type TsRestReactQueryHooksContainer<
   T extends AppRouter,
   TClientArgs extends ClientArgs,

@@ -237,12 +237,22 @@ const traversedPathsToOpenApi = (
       responses,
     };
 
-    pathObject[path.path] = {
-      ...pathObject[path.path],
-      [mapMethod[path.route.method]]: options.operationMapper
-        ? options.operationMapper(pathOperation, path.route, path.id)
-        : pathOperation,
-    };
+    const operation = options.operationMapper
+      ? options.operationMapper(pathOperation, path.route, path.id)
+      : pathOperation;
+    const pathItem = pathObject[path.path] ?? {};
+
+    if (path.route.method === 'QUERY') {
+      pathObject[path.path] = {
+        ...pathItem,
+        'x-oai-additionalOperations': { QUERY: operation },
+      };
+    } else {
+      pathObject[path.path] = {
+        ...pathItem,
+        [mapMethod[path.route.method]]: operation,
+      };
+    }
   }
 
   if (Object.keys(referenceSchemas).length) {

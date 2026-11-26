@@ -21,6 +21,7 @@ import {
   application,
 } from 'express';
 import {
+  AppRouteImplementation,
   AppRouteImplementationOrOptions,
   TsRestExpressOptions,
   RouterImplementation,
@@ -157,7 +158,9 @@ const initializeExpressRoute = ({
     console.log(`[ts-rest] Initialized ${schema.method} ${schema.path}`);
   }
 
-  const handler = isAppRouteImplementation(implementationOrOptions)
+  const handler: AppRouteImplementation<AppRoute> = isAppRouteImplementation(
+    implementationOrOptions,
+  )
     ? implementationOrOptions
     : implementationOrOptions.handler;
 
@@ -259,6 +262,16 @@ const initializeExpressRoute = ({
     case 'GET':
       app.get(expressPath, ...(handlers as RequestHandler[]));
       break;
+    case 'QUERY': {
+      const router = app as IRouter & { query?: IRouter['post'] };
+      if (typeof router.query !== 'function') {
+        throw new Error(
+          '[ts-rest] HTTP QUERY requires an Express router and Node runtime that support it',
+        );
+      }
+      router.query(expressPath, ...(handlers as RequestHandler[]));
+      break;
+    }
     case 'DELETE':
       app.delete(expressPath, ...(handlers as RequestHandler[]));
       break;

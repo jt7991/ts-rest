@@ -3,6 +3,14 @@ import { initContract } from '@ts-rest/core';
 import { AppRouteImplementation } from './types';
 import { IncomingHttpHeaders } from 'http';
 
+declare global {
+  namespace Express {
+    interface Locals {
+      requestId?: string;
+    }
+  }
+}
+
 export type Equal<a, b> = (<T>() => T extends a ? 1 : 2) extends <
   T,
 >() => T extends b ? 1 : 2
@@ -36,6 +44,19 @@ const contract = c.router({
       }),
     },
   },
+});
+
+it('combines controller locals with app-wide Express locals', () => {
+  type Implementation = AppRouteImplementation<
+    typeof contract.postSomethingIndex,
+    { viewer: { id: string } }
+  >;
+  type Locals = Parameters<Implementation>[0]['res']['locals'];
+
+  type ShouldHaveViewer = Expect<Equal<Locals['viewer'], { id: string }>>;
+  type ShouldHaveRequestId = Expect<
+    Equal<Locals['requestId'], string | undefined>
+  >;
 });
 
 it('should have type inference on req', () => {

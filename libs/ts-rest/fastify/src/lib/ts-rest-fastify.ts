@@ -318,6 +318,12 @@ const registerRoute = <TAppRoute extends AppRoute>(
   app: fastify.FastifyInstance,
   options: BaseRegisterRouterOptions,
 ) => {
+  if (appRoute.method === 'QUERY') {
+    throw new Error(
+      '[ts-rest] HTTP QUERY is unsupported by the Fastify adapter',
+    );
+  }
+
   if (options.logInitialization) {
     app.log.info(`[ts-rest] Initialized ${appRoute.method} ${appRoute.path}`);
   }

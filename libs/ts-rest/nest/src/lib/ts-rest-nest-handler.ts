@@ -125,6 +125,10 @@ export class ResponseValidationError extends InternalServerErrorException {
 
 const getHttpVerbDecorator = (route: AppRoute) => {
   switch (route.method) {
+    case 'QUERY':
+      throw new Error(
+        '[ts-rest] HTTP QUERY is unsupported by the Nest adapter',
+      );
     case 'GET':
       return Get(route.path);
     case 'POST':

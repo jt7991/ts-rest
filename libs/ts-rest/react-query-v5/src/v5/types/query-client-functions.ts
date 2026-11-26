@@ -4,13 +4,24 @@ import {
   FetchInfiniteQueryOptions,
   FetchQueryOptions,
   InfiniteData,
+  InvalidateOptions,
+  InvalidateQueryFilters,
   QueryFilters,
   QueryKey,
   QueryState,
   SetDataOptions,
 } from '@tanstack/react-query';
-import { DataResponse, ErrorResponse } from './common';
-import { TsRestQueryOptions } from './hooks-options';
+import {
+  DataResponse,
+  ErrorResponse,
+  WithoutQueryKey,
+  PartialQueryData,
+  RequestData,
+} from './common';
+import {
+  TsRestInfiniteQueryOptions,
+  TsRestQueryOptions,
+} from './hooks-options';
 
 type Updater<TInput, TOutput> = TOutput | ((input: TInput) => TOutput);
 
@@ -20,10 +31,20 @@ export interface TsRestQueryClientFunctions<
   TQueryFnData = DataResponse<TAppRoute>,
   TError = ErrorResponse<TAppRoute>,
 > {
-  getQueryData(queryKey: QueryKey): TQueryFnData | undefined;
+  getQueryData(
+    queryData?: RequestData<TAppRoute, TClientArgs>,
+  ): TQueryFnData | undefined;
+
+  invalidateQueries(
+    queryData?: PartialQueryData<RequestData<TAppRoute, TClientArgs>>,
+    filters?: Omit<InvalidateQueryFilters, 'queryKey' | 'exact'>,
+    options?: InvalidateOptions,
+  ): Promise<void>;
 
   ensureQueryData<TData = TQueryFnData>(
-    options: EnsureQueryDataOptions<TQueryFnData, TError, TData> &
+    options: WithoutQueryKey<
+      EnsureQueryDataOptions<TQueryFnData, TError, TData>
+    > &
       TsRestQueryOptions<TAppRoute, TClientArgs>,
   ): Promise<TData>;
 
@@ -32,7 +53,7 @@ export interface TsRestQueryClientFunctions<
   ): Array<[QueryKey, TQueryFnData | undefined]>;
 
   setQueryData(
-    queryKey: QueryKey,
+    queryData: RequestData<TAppRoute, TClientArgs> | undefined,
     updater: Updater<TQueryFnData | undefined, TQueryFnData | undefined>,
     options?: SetDataOptions,
   ): TQueryFnData | undefined;
@@ -44,38 +65,44 @@ export interface TsRestQueryClientFunctions<
   ): Array<[QueryKey, TQueryFnData | undefined]>;
 
   getQueryState(
-    queryKey: QueryKey,
+    queryData?: RequestData<TAppRoute, TClientArgs>,
   ): QueryState<TQueryFnData, TError> | undefined;
 
   fetchQuery<TData = TQueryFnData>(
-    options: FetchQueryOptions<TQueryFnData, TError, TData> &
+    options: WithoutQueryKey<FetchQueryOptions<TQueryFnData, TError, TData>> &
       TsRestQueryOptions<TAppRoute, TClientArgs>,
   ): Promise<TData>;
 
   prefetchQuery<TData = TQueryFnData>(
-    options: FetchQueryOptions<TQueryFnData, TError, TData, QueryKey> &
+    options: WithoutQueryKey<
+      FetchQueryOptions<TQueryFnData, TError, TData, QueryKey>
+    > &
       TsRestQueryOptions<TAppRoute, TClientArgs>,
   ): Promise<void>;
 
   fetchInfiniteQuery<TData = TQueryFnData, TPageParam = unknown>(
-    options: FetchInfiniteQueryOptions<
-      TQueryFnData,
-      TError,
-      TData,
-      QueryKey,
-      TPageParam
+    options: WithoutQueryKey<
+      FetchInfiniteQueryOptions<
+        TQueryFnData,
+        TError,
+        TData,
+        QueryKey,
+        TPageParam
+      >
     > &
-      TsRestQueryOptions<TAppRoute, TClientArgs>,
+      TsRestInfiniteQueryOptions<TAppRoute, TClientArgs, TPageParam>,
   ): Promise<InfiniteData<TData, TPageParam>>;
 
   prefetchInfiniteQuery<TData = TQueryFnData, TPageParam = unknown>(
-    options: FetchInfiniteQueryOptions<
-      TQueryFnData,
-      TError,
-      TData,
-      QueryKey,
-      TPageParam
+    options: WithoutQueryKey<
+      FetchInfiniteQueryOptions<
+        TQueryFnData,
+        TError,
+        TData,
+        QueryKey,
+        TPageParam
+      >
     > &
-      TsRestQueryOptions<TAppRoute, TClientArgs>,
+      TsRestInfiniteQueryOptions<TAppRoute, TClientArgs, TPageParam>,
   ): Promise<void>;
 }

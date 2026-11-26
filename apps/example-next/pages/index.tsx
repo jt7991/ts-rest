@@ -7,8 +7,8 @@ const PAGE_SIZE = 5;
 export function Index() {
   const { isPending, isError, data, hasNextPage, fetchNextPage } =
     tsr.getPosts.useInfiniteQuery({
-      queryKey: ['posts'],
-      queryData: ({ pageParam }) => ({
+      queryData: { query: { skip: '0', take: PAGE_SIZE.toString() } },
+      getPageQueryData: ({ pageParam }) => ({
         query: {
           skip: pageParam.skip.toString(),
           take: pageParam.take.toString(),

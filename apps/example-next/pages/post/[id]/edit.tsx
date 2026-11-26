@@ -86,7 +86,6 @@ export function Index() {
   const postId = router.query.id as string;
 
   const { data, isPending, isError } = tsr.getPost.useQuery({
-    queryKey: [`post-${postId}`],
     queryData: {
       params: { id: postId },
     },

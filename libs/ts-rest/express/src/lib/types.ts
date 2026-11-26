@@ -14,28 +14,34 @@ import { RequestValidationError } from './request-validation-error';
 
 export type AppRouteQueryImplementation<
   T extends AppRouteQuery | AppRouteDeleteNoBody,
+  TLocals extends Record<string, any> = Record<string, any>,
 > = (
   input: ServerInferRequest<T, Express['request']['headers']> & {
     req: TsRestRequest<T>;
-    res: Response;
+    res: Response<any, TLocals>;
   },
 ) => Promise<ServerInferResponses<T>>;
 
-export type AppRouteMutationImplementation<T extends AppRouteMutation> = (
+export type AppRouteMutationImplementation<
+  T extends AppRouteMutation,
+  TLocals extends Record<string, any> = Record<string, any>,
+> = (
   input: ServerInferRequest<T, Express['request']['headers']> & {
     files: unknown;
     file: unknown;
     req: TsRestRequest<T>;
-    res: Response;
+    res: Response<any, TLocals>;
   },
 ) => Promise<ServerInferResponses<T>>;
 
-export type AppRouteImplementation<T extends AppRoute> =
-  T extends AppRouteMutation
-    ? AppRouteMutationImplementation<T>
-    : T extends AppRouteQuery | AppRouteDeleteNoBody
-    ? AppRouteQueryImplementation<T>
-    : never;
+export type AppRouteImplementation<
+  T extends AppRoute,
+  TLocals extends Record<string, any> = Record<string, any>,
+> = T extends AppRouteMutation
+  ? AppRouteMutationImplementation<T, TLocals>
+  : T extends AppRouteQuery | AppRouteDeleteNoBody
+  ? AppRouteQueryImplementation<T, TLocals>
+  : never;
 
 export type TsRestRequest<
   T extends AppRouter | AppRoute,
@@ -59,22 +65,31 @@ export type TsRestRequestHandler<T extends AppRouter | AppRoute> = (
   next: NextFunction,
 ) => void;
 
+// Express middleware can supply more specific locals than the router can see.
+// The second signature keeps the other handler inputs checked contravariantly.
+type AllowNarrowerResponse<THandler> = THandler extends (
+  input: infer TInput,
+) => infer TOutput
+  ? { handler(input: TInput): TOutput }['handler'] &
+      ((input: Omit<TInput, 'res'> & { res: never }) => TOutput)
+  : never;
+
+type RegisteredRouteHandler<TRoute extends AppRoute> = AllowNarrowerResponse<
+  AppRouteImplementation<TRoute>
+>;
+
 export interface AppRouteOptions<TRoute extends AppRoute> {
   middleware?: TsRestRequestHandler<TRoute>[];
-  handler: TRoute extends AppRouteQuery | AppRouteDeleteNoBody
-    ? AppRouteQueryImplementation<TRoute>
-    : TRoute extends AppRouteMutation
-    ? AppRouteMutationImplementation<TRoute>
-    : never;
+  handler: RegisteredRouteHandler<TRoute>;
 }
 
 export type AppRouteImplementationOrOptions<TRoute extends AppRoute> =
   | AppRouteOptions<TRoute>
-  | AppRouteImplementation<TRoute>;
+  | RegisteredRouteHandler<TRoute>;
 
 export const isAppRouteImplementation = <TRoute extends AppRoute>(
   obj: AppRouteImplementationOrOptions<TRoute>,
-): obj is AppRouteImplementation<TRoute> => {
+): obj is RegisteredRouteHandler<TRoute> => {
   return typeof obj === 'function';
 };
 

@@ -1,6 +1,6 @@
 import {
   AppRoute,
-  AppRouteMutation,
+  AppRouteWithBody,
   AppRouter,
   AppRouteStrictStatusCodes,
   ContractAnyType,
@@ -160,7 +160,7 @@ export type ClientInferResponseBody<
   TStatus extends keyof T['responses'] = keyof T['responses'],
 > = Prettify<AppRouteResponses<T, TStatus & HTTPStatusCode, 'client'>['body']>;
 
-type BodyWithoutFileIfMultiPart<T extends AppRouteMutation> =
+type BodyWithoutFileIfMultiPart<T extends AppRouteWithBody> =
   T['contentType'] extends 'multipart/form-data'
     ? Without<SchemaOutputOrType<T['body']>, File | File[]>
     : SchemaOutputOrType<T['body']>;
@@ -175,7 +175,7 @@ export type ServerInferRequest<
           params: [keyof PathParamsWithCustomValidators<T>] extends [never]
             ? never
             : Prettify<PathParamsWithCustomValidators<T>>;
-          body: T extends AppRouteMutation
+          body: T extends AppRouteWithBody
             ? BodyWithoutFileIfMultiPart<T>
             : never;
           query: 'query' extends keyof T
@@ -224,7 +224,7 @@ type ClientInferRequestBase<
       ]
         ? never
         : Prettify<PathParamsWithCustomValidators<T, 'client'>>;
-      body: T extends AppRouteMutation
+      body: T extends AppRouteWithBody
         ? T['body'] extends null
           ? never
           : T['contentType'] extends 'multipart/form-data'

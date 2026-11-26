@@ -10,7 +10,6 @@ const {
   data, // <- fully typed response data
   error, // <- fully typed error data
 } = tsr.getPost.useQuery({
-  queryKey: ['posts'],
   queryData: {
     // <- fully typed request data
     params: { id: '1' },
@@ -94,14 +93,14 @@ import { tsr } from './tsr';
 const Posts = () => {
   const tsrQueryClient = tsr.useQueryClient();
 
-  const { data, isPending } = tsr.posts.get.useQuery({ queryKey: ['posts'] });
+  const { data, isPending } = tsr.posts.get.useQuery({});
   const { mutate } = tsr.posts.create.useMutation({
     onMutate: (newPost) => {
       // get current posts, so we can reset back to it if the mutation fails
-      const lastGoodKnown = tsrQueryClient.posts.get.getQueryData(['posts']);
+      const lastGoodKnown = tsrQueryClient.posts.get.getQueryData();
 
       // optimistically update the cache with the new post
-      tsrQueryClient.posts.get.setQueryData(['posts'], (old) => ({
+      tsrQueryClient.posts.get.setQueryData(undefined, (old) => ({
         ...old,
         body: [
           ...old.body,
@@ -116,13 +115,11 @@ const Posts = () => {
       return { lastGoodKnown };
     },
     onError: (error, newPost, context) => {
-      tsrQueryClient.posts.get.setQueryData(['posts'], context.lastGoodKnown);
+      tsrQueryClient.posts.get.setQueryData(undefined, context.lastGoodKnown);
     },
     onSettled: () => {
       // trigger a refetch regardless if the mutation was successful or not
-      tsrQueryClient.invalidateQueries({ queryKey: ['posts'] });
-      //                 ^ QueryClient functions that do not consume or provide typed data are not wrapped by ts-rest
-      // and are provided at the root level only
+      return tsrQueryClient.posts.get.invalidateQueries();
     },
   });
 
@@ -149,7 +146,7 @@ const Posts = () => {
 };
 ```
 
-All the hooks have the same function signatures and options exactly as the ones from `@tanstack/react-query`, with the only difference being that you need to pass `queryData` instead of `queryFn`.
+The hooks accept TanStack Query options. Pass the request as `queryData` and ts-rest generates its key.
 
 <Callout type="info" title="Response Structure">
 
@@ -166,7 +163,7 @@ If you want to make `fetch` requests directly without going through React Query,
 const { body, status } = await tsr.posts.get.query();
 
 // useQuery hook
-const { data, isLoading } = tsr.posts.get.useQuery();
+const { data, isLoading } = tsr.posts.get.useQuery({});
 ```
 
 ## Query Client
@@ -180,12 +177,8 @@ signatures to the ts-rest hooks for functions such as `queryClient.fetchQuery` a
 import { tsr } from './tsr';
 
 const Posts = () => {
-  const POSTS_QUERY_KEY = ['posts'];
-
   const tsrQueryClient = tsr.useQueryClient();
-  const { data, isLoading } = tsr.posts.get.useQuery({
-    queryKey: POSTS_QUERY_KEY,
-  });
+  const { data, isLoading } = tsr.posts.get.useQuery({});
   const { mutate } = tsr.posts.create.useMutation();
 
   const createPost = async () => {
@@ -194,8 +187,7 @@ const Posts = () => {
       {
         onSuccess: async (data) => {
           //  this is typed ^
-          tsrQueryClient.posts.get.setQueryData(POSTS_QUERY_KEY, (oldPosts) => {
-            //                                     this is also typed ^
+          tsrQueryClient.posts.get.setQueryData(undefined, (oldPosts) => {
             return {
               ...oldPosts,
               body: [...oldPosts.body, data.body],
@@ -225,13 +217,26 @@ const Posts = () => {
 };
 ```
 
-### Non-Wrapped Functions
+### Generated Keys and Invalidation
 
-For functions that do not consume or provide typed data such as `queryClient.invalidateQueries()`, it makes no sense to wrap these and access them through an endpoint path such as `tsrQueryClient.posts.get.invalidateQueries()`.
-As such, these functions are provided as-is at the root level of the `tsr.useQueryClient()` instance.
+ts-rest generates a key of the form `[routePath, queryData]`. The route path comes from the contract's property names. For example, `tsr.posts.getPost.useQuery({ queryData: { params: { id: '1' } } })` uses `['posts.getPost', { params: { id: '1' } }]`.
 
-You can actually use the `QueryClient` returned from `tsr.useQueryClient()` anywhere you would normally use a `QueryClient` instance, as under the hood
-we use the `QueryClient` returned from `useQueryClient()`, and we simply extend it with the ts-rest functions.
+The same key is used by the hooks and the query client's fetch, ensure, and prefetch methods. Pass the same request data to the route's `getQueryData`, `getQueryState`, or `setQueryData` to access a regular query's cache entry. Use `undefined` when the request has no data.
+
+```ts
+const queryData = { params: { id: '1' } };
+const post = tsrQueryClient.posts.getPost.getQueryData(queryData);
+
+// Match this ID across all other request filters for this route.
+await tsrQueryClient.posts.getPost.invalidateQueries({ params: { id: '1' } });
+
+// Match every generated key for this route.
+await tsrQueryClient.posts.getPost.invalidateQueries();
+```
+
+Route invalidation matches nested subsets of the request data. Use `tsr.posts.getPost.getQueryKey(queryData)` to pass the generated key to TanStack APIs such as `queryClient.removeQueries({ queryKey })`.
+
+Automatic keys include the supplied request data. Use plain JSON data and keep secrets in the client configuration. Use separate query clients when different API clients share a contract route path.
 
 ## Error Handling
 
@@ -248,7 +253,6 @@ import { tsr } from './tsr';
 
 const Post = ({ id }: { id: string }) => {
   const { data, error, isPending } = tsr.getPost.useQuery({
-    queryKey: ['posts', id],
     queryData: {
       params: { id },
     },
@@ -305,7 +309,6 @@ import { tsr } from './tsr';
 
 const Post = ({ id }: { id: string }) => {
   const { data, error, isPending, contractEndpoint } = tsr.getPost.useQuery({
-    queryKey: ['posts', id],
     queryData: {
       params: { id },
     },
@@ -370,7 +373,7 @@ import { tsr } from './tsr';
 export async function getServerSideProps() {
   const tsrQueryClient = tsr.initQueryClient(new QueryClient());
 
-  await tsrQueryClient.getPosts.prefetchQuery({ queryKey: ['POSTS'] });
+  await tsrQueryClient.getPosts.prefetchQuery({});
 
   return {
     props: {
@@ -394,7 +397,7 @@ import { tsr } from './tsr';
 export default async function PostsPage() {
   const tsrQueryClient = tsr.initQueryClient(new QueryClient()); // <-- or pass a QueryClient from anywhere depending on your needs
 
-  await tsrQueryClient.getPosts.prefetchQuery({ queryKey: ['POSTS'] });
+  await tsrQueryClient.getPosts.prefetchQuery({});
 
   return (
     <HydrationBoundary state={dehydrate(tsrQueryClient)}>
@@ -408,7 +411,26 @@ export default async function PostsPage() {
 
 You can also fetch multiple queries at once using `useQueries` or `useSuspenseQueries`. It can be useful for fetching multiple queries, usually from the same endpoint.
 
-ts-rest does not support multiple queries from different endpoints.
+The ts-rest route hooks batch requests to a single endpoint. To batch queries from different endpoints, pass each route's `queryOptions()` to TanStack Query's `useQueries()`.
+
+```tsx
+import { useQueries } from '@tanstack/react-query';
+import { tsr } from './tsr';
+
+const { post, comments, isPending } = useQueries({
+  queries: [
+    tsr.posts.getPost.queryOptions({ queryData: { params: { id } } }),
+    tsr.comments.list.queryOptions({ queryData: { query: { postId: id } } }),
+  ],
+  combine: ([post, comments]) => ({
+    post: post.data?.body,
+    comments: comments.data?.body,
+    isPending: post.isPending || comments.isPending,
+  }),
+});
+```
+
+`queryOptions()` generates the same key and fetch function as the ts-rest hook. You can also pass the options to a TanStack `queryClient.prefetchQuery()` call.
 
 ```tsx
 import { tsr } from './tsr';
@@ -416,7 +438,6 @@ import { tsr } from './tsr';
 const Posts = ({ ids }: { ids: string[] }) => {
   const { data, pending } = tsr.posts.get.useQueries({
     queries: ids.map((id) => ({
-      queryKey: ['posts', id],
       queryData: {
         params: { id },
       },
@@ -447,7 +468,7 @@ See the [official `useQueries()` docs](https://tanstack.com/query/v5/docs/react/
 
 ## Infinite Query
 
-Infinite query hooks such as `useInfiniteQuery` and `useSuspenseInfiniteQuery`, `queryData` should be a function that maps a context object containing `pageParam` to the actual query data.
+For infinite queries, pass the initial request as `queryData` and use `getPageQueryData` to build the request for each page. The generated key is `[routePath, queryData, 'infinite']`, which keeps the paginated cache separate and lets route invalidation match it. Use `getQueryKey(queryData, 'infinite')` when you need the full key.
 
 ```tsx
 import { tsr } from './tsr';
@@ -457,8 +478,8 @@ const PAGE_SIZE = 5;
 export const Posts = () => {
   const { data, isLoading, isError, fetchNextPage, hasNextPage } =
     tsr.getPosts.useInfiniteQuery({
-      queryKey: ['posts'],
-      queryData: ({ pageParam }) => ({
+      queryData: { query: { skip: 0, take: PAGE_SIZE } },
+      getPageQueryData: ({ pageParam }) => ({
         query: {
           skip: pageParam.skip,
           take: pageParam.take,
@@ -503,7 +524,7 @@ See the [official `useInfiniteQuery()` docs](https://tanstack.com/query/v5/docs/
 
 You can also use `fetchInfiniteQuery` and `prefetchInfiniteQuery` on the ts-rest extended `QueryClient`.
 
-These will take the same arguments as `fetchQuery`, but need to specify an `initialPageParam` in order to correctly put the data in the cache with its corresponding `pageParam`.
+Use the same `queryData`, `initialPageParam`, and pagination options for server prefetching and the client hook so the hook can reuse the prefetched cache entry.
 
 ```tsx
 import {
@@ -516,13 +537,15 @@ import { tsr } from './tsr';
 export default async function Page() {
   const tsrQueryClient = tsr.initQueryClient(new QueryClient());
 
-  const initialPageParam = { skip: 0, take: 10 };
+  const initialPageParam = { skip: 0, take: 5 };
   await tsrQueryClient.getPosts.prefetchInfiniteQuery({
-    queryKey: ['posts'],
-    queryData: {
-      query: initialPageParam,
-    },
+    queryData: { query: initialPageParam },
+    getPageQueryData: ({ pageParam }) => ({ query: pageParam }),
     initialPageParam,
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.body.posts.length >= initialPageParam.take
+        ? { ...initialPageParam, skip: allPages.length * initialPageParam.take }
+        : undefined,
   });
 
   return (
