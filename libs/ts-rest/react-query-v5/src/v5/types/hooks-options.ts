@@ -1,13 +1,13 @@
 import {
   InfiniteData,
+  InfiniteQueryPageParamsOptions,
+  QueryObserverOptions,
   QueryFunction,
   QueryFunctionContext,
   QueryKey,
   queryOptions,
-  UseInfiniteQueryOptions as TanStackUseInfiniteQueryOptions,
   UseMutationOptions as TanStackUseMutationOptions,
   UseQueryOptions as TanStackUseQueryOptions,
-  UseSuspenseInfiniteQueryOptions as TanStackUseSuspenseInfiniteQueryOptions,
   UseSuspenseQueryOptions as TanStackUseSuspenseQueryOptions,
   SkipToken,
 } from '@tanstack/react-query';
@@ -47,21 +47,37 @@ type PageQueryData<
   context: QueryFunctionContext<QueryKey, TPageParam>,
 ) => RequestData<TAppRoute, TClientArgs>;
 
+type InfiniteQueryData<
+  TAppRoute extends AppRoute,
+  TClientArgs extends ClientArgs,
+  TPageParam,
+> = {
+  queryData: (context: {
+    pageParam: TPageParam;
+  }) => RequestData<TAppRoute, TClientArgs>;
+  getPageQueryData?: never;
+  queryKey?: never;
+};
+
 export type TsRestInfiniteQueryOptions<
   TAppRoute extends AppRoute,
   TClientArgs extends ClientArgs,
   TPageParam = unknown,
-> = TsRestQueryOptions<TAppRoute, TClientArgs> & {
-  getPageQueryData?: PageQueryData<TAppRoute, TClientArgs, TPageParam>;
-};
+> =
+  | (TsRestQueryOptions<TAppRoute, TClientArgs> & {
+      getPageQueryData?: PageQueryData<TAppRoute, TClientArgs, TPageParam>;
+    })
+  | InfiniteQueryData<TAppRoute, TClientArgs, TPageParam>;
 
 export type TsRestSuspenseInfiniteQueryOptions<
   TAppRoute extends AppRoute,
   TClientArgs extends ClientArgs,
   TPageParam = unknown,
-> = TsRestSuspenseQueryOptions<TAppRoute, TClientArgs> & {
-  getPageQueryData?: PageQueryData<TAppRoute, TClientArgs, TPageParam>;
-};
+> =
+  | (TsRestSuspenseQueryOptions<TAppRoute, TClientArgs> & {
+      getPageQueryData?: PageQueryData<TAppRoute, TClientArgs, TPageParam>;
+    })
+  | InfiniteQueryData<TAppRoute, TClientArgs, TPageParam>;
 
 export type UseQueryOptions<
   TAppRoute extends AppRoute,
@@ -138,22 +154,31 @@ export type UseSuspenseQueryOptions<
 > &
   TsRestSuspenseQueryOptions<TAppRoute, TClientArgs>;
 
+// These core types work across TanStack v5 versions. The React infinite-query
+// options changed their generic parameter list within v5.
+type InfiniteQueryOptionsBase<
+  TAppRoute extends AppRoute,
+  TData,
+  TPageParam,
+> = Omit<
+  QueryObserverOptions<
+    DataResponse<TAppRoute>,
+    ErrorResponse<TAppRoute>,
+    TData,
+    InfiniteData<DataResponse<TAppRoute>, TPageParam>,
+    QueryKey,
+    TPageParam
+  >,
+  'queryFn' | 'queryKey' | 'suspense'
+> &
+  InfiniteQueryPageParamsOptions<DataResponse<TAppRoute>, TPageParam>;
+
 export type UseInfiniteQueryOptions<
   TAppRoute extends AppRoute,
   TClientArgs extends ClientArgs,
   TData = InfiniteData<DataResponse<TAppRoute>>,
   TPageParam = unknown,
-> = Omit<
-  TanStackUseInfiniteQueryOptions<
-    DataResponse<TAppRoute>,
-    ErrorResponse<TAppRoute>,
-    TData,
-    DataResponse<TAppRoute>,
-    QueryKey,
-    TPageParam
-  >,
-  'queryFn' | 'queryKey'
-> &
+> = InfiniteQueryOptionsBase<TAppRoute, TData, TPageParam> &
   TsRestInfiniteQueryOptions<TAppRoute, TClientArgs, TPageParam>;
 
 export type UseInfiniteQueryOptionsWithInitialData<
@@ -182,15 +207,8 @@ export type UseSuspenseInfiniteQueryOptions<
   TData = InfiniteData<DataResponse<TAppRoute>>,
   TPageParam = unknown,
 > = Omit<
-  TanStackUseSuspenseInfiniteQueryOptions<
-    DataResponse<TAppRoute>,
-    ErrorResponse<TAppRoute>,
-    TData,
-    DataResponse<TAppRoute>,
-    QueryKey,
-    TPageParam
-  >,
-  'queryFn' | 'queryKey'
+  InfiniteQueryOptionsBase<TAppRoute, TData, TPageParam>,
+  'enabled' | 'throwOnError' | 'placeholderData'
 > &
   TsRestSuspenseInfiniteQueryOptions<TAppRoute, TClientArgs, TPageParam>;
 

@@ -93,7 +93,7 @@ import { tsr } from './tsr';
 const Posts = () => {
   const tsrQueryClient = tsr.useQueryClient();
 
-  const { data, isPending } = tsr.posts.get.useQuery({});
+  const { data, isPending } = tsr.posts.get.useQuery();
   const { mutate } = tsr.posts.create.useMutation({
     onMutate: (newPost) => {
       // get current posts, so we can reset back to it if the mutation fails
@@ -163,8 +163,10 @@ If you want to make `fetch` requests directly without going through React Query,
 const { body, status } = await tsr.posts.get.query();
 
 // useQuery hook
-const { data, isLoading } = tsr.posts.get.useQuery({});
+const { data, isLoading } = tsr.posts.get.useQuery();
 ```
+
+When a route has no required request data, you can call `useQuery()` with no options. Pass `queryData` in the options when the contract requires it, or to supply optional filters.
 
 ## Query Client
 
@@ -178,7 +180,7 @@ import { tsr } from './tsr';
 
 const Posts = () => {
   const tsrQueryClient = tsr.useQueryClient();
-  const { data, isLoading } = tsr.posts.get.useQuery({});
+  const { data, isLoading } = tsr.posts.get.useQuery();
   const { mutate } = tsr.posts.create.useMutation();
 
   const createPost = async () => {
@@ -468,7 +470,9 @@ See the [official `useQueries()` docs](https://tanstack.com/query/v5/docs/react/
 
 ## Infinite Query
 
-For infinite queries, pass the initial request as `queryData` and use `getPageQueryData` to build the request for each page. The generated key is `[routePath, queryData, 'infinite']`, which keeps the paginated cache separate and lets route invalidation match it. Use `getQueryKey(queryData, 'infinite')` when you need the full key.
+For infinite queries, pass a `queryData({ pageParam })` function that builds the request for each page. ts-rest calls it with `initialPageParam` to build the first request and generate the key `[routePath, firstRequest, 'infinite']`. Use a deterministic function so the same initial request always gives the same key. To get the full key, pass the first request to `getQueryKey(firstRequest, 'infinite')`.
+
+Existing calls can still use a static `queryData` object and a separate `getPageQueryData` callback.
 
 ```tsx
 import { tsr } from './tsr';
@@ -478,13 +482,7 @@ const PAGE_SIZE = 5;
 export const Posts = () => {
   const { data, isLoading, isError, fetchNextPage, hasNextPage } =
     tsr.getPosts.useInfiniteQuery({
-      queryData: { query: { skip: 0, take: PAGE_SIZE } },
-      getPageQueryData: ({ pageParam }) => ({
-        query: {
-          skip: pageParam.skip,
-          take: pageParam.take,
-        },
-      }),
+      queryData: ({ pageParam }) => ({ query: pageParam }),
       initialPageParam: { skip: 0, take: PAGE_SIZE },
       getNextPageParam: (lastPage, allPages) => {
         return lastPage.body.posts.length >= PAGE_SIZE
@@ -539,8 +537,7 @@ export default async function Page() {
 
   const initialPageParam = { skip: 0, take: 5 };
   await tsrQueryClient.getPosts.prefetchInfiniteQuery({
-    queryData: { query: initialPageParam },
-    getPageQueryData: ({ pageParam }) => ({ query: pageParam }),
+    queryData: ({ pageParam }) => ({ query: pageParam }),
     initialPageParam,
     getNextPageParam: (lastPage, allPages) =>
       lastPage.body.posts.length >= initialPageParam.take

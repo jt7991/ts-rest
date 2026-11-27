@@ -93,17 +93,26 @@ function createBaseQueryOptions<
 ): TOptions & { queryKey: QueryKey } {
   const { queryData, getPageQueryData, ...rqOptions } =
     options as unknown as TOptions &
-      TsRestInfiniteQueryOptions<TAppRoute, TClientArgs>;
+      TsRestInfiniteQueryOptions<TAppRoute, TClientArgs> & {
+        initialPageParam?: unknown;
+      };
+  const initialQueryData =
+    typeof queryData === 'function'
+      ? queryData({ pageParam: rqOptions.initialPageParam })
+      : queryData;
   return {
     ...rqOptions,
-    queryKey: createQueryKey(routePath, queryData, type),
+    queryKey: createQueryKey(routePath, initialQueryData, type),
     queryFn:
       queryData === skipToken
         ? skipToken
         : (context: QueryFunctionContext<QueryKey, unknown>) => {
-            const requestData = getPageQueryData
-              ? getPageQueryData(context)
-              : queryData;
+            const requestData =
+              typeof queryData === 'function'
+                ? queryData({ pageParam: context.pageParam })
+                : getPageQueryData
+                ? getPageQueryData(context)
+                : queryData;
 
             return apiFetcher(route, clientArgs, context.signal)(requestData);
           },
@@ -173,26 +182,27 @@ const wrapAllHooks = <
   return {
     ...wrapHooks(
       tanstackQueryHooks.query,
-      (hook, hookName) => (options, queryClient) => {
-        return appendTsRestResult(
-          hook(
-            createBaseQueryOptions(
-              appRoute,
-              clientOptions,
-              routePath,
-              options,
-              hookName === 'useInfiniteQuery' ||
-                hookName === 'useSuspenseInfiniteQuery'
-                ? 'infinite'
-                : undefined,
+      (hook, hookName) =>
+        (options = {}, queryClient) => {
+          return appendTsRestResult(
+            hook(
+              createBaseQueryOptions(
+                appRoute,
+                clientOptions,
+                routePath,
+                options,
+                hookName === 'useInfiniteQuery' ||
+                  hookName === 'useSuspenseInfiniteQuery'
+                  ? 'infinite'
+                  : undefined,
+              ),
+              queryClient,
             ),
-            queryClient,
-          ),
-          {
-            contractEndpoint: appRoute,
-          },
-        );
-      },
+            {
+              contractEndpoint: appRoute,
+            },
+          );
+        },
     ),
     ...wrapHooks(
       tanstackQueryHooks.queries,

@@ -1,4 +1,9 @@
-import { AppRoute, AppRouteFunction, ClientArgs } from '@ts-rest/core';
+import {
+  AppRoute,
+  AppRouteFunction,
+  ClientArgs,
+  IfAllPropertiesOptional,
+} from '@ts-rest/core';
 import {
   FetchInfiniteQueryOptions,
   FetchQueryOptions,
@@ -78,6 +83,14 @@ export interface QueryHooks<
     TAppRoute,
     UseQueryOptions<TAppRoute, TClientArgs, TData>
   >;
+
+  useQuery(
+    ...args: IfAllPropertiesOptional<
+      RequestData<TAppRoute, TClientArgs>,
+      [options?: undefined, queryClient?: QueryClient],
+      [options: never]
+    >
+  ): UseQueryResult<TAppRoute, TQueryFnData, TError>;
 
   useQuery<TData = TQueryFnData>(
     options: UseQueryOptionsWithInitialData<TAppRoute, TClientArgs, TData>,

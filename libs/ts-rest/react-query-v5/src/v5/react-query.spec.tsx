@@ -1441,6 +1441,29 @@ describe('react-query', () => {
     });
   });
 
+  it('shares a cache entry when useQuery is called with or without options', async () => {
+    const response = { status: 200, body: { message: 'Healthy' } };
+    api.mockResolvedValue(response);
+
+    // @ts-expect-error A route with required params cannot be called without options.
+    const getPostWithoutOptions: () => unknown = tsr.posts.getPost.useQuery;
+    void getPostWithoutOptions;
+
+    const { result } = renderHook(
+      () => ({
+        implicit: tsr.health.useQuery(),
+        explicit: tsr.health.useQuery({}),
+      }),
+      { wrapper: ReactQueryProvider },
+    );
+
+    await waitFor(() => {
+      expect(result.current.implicit.data).toEqual(response);
+      expect(result.current.explicit.data).toEqual(response);
+    });
+    expect(api).toHaveBeenCalledTimes(1);
+  });
+
   it('uses the generated key when a hook receives an explicit key at runtime', async () => {
     api.mockResolvedValue(SUCCESS_RESPONSE);
 
@@ -1609,6 +1632,64 @@ describe('react-query', () => {
 
     expect(route.getQueryState(queryData)?.isInvalidated).toBe(true);
     expect(queryClient.getQueryState(infiniteKey)?.isInvalidated).toBe(true);
+  });
+
+  it('reuses prefetched infinite pages and isolates different starting cursors', async () => {
+    api.mockResolvedValue(SUCCESS_RESPONSE);
+
+    const client = tsr.initQueryClient(queryClient);
+    const route = tsr.posts.getPosts;
+    const options = {
+      initialPageParam: 0,
+      queryData: ({ pageParam }: { pageParam: number }) => ({
+        query: { take: 10, skip: pageParam },
+      }),
+      staleTime: Infinity,
+    };
+    await client.posts.getPosts.prefetchInfiniteQuery(options);
+
+    const { result } = renderHook(
+      () =>
+        route.useInfiniteQuery({
+          ...options,
+          getNextPageParam: (_lastPage, _allPages, lastPageParam) =>
+            lastPageParam === 0 ? 10 : undefined,
+        }),
+      { wrapper: ReactQueryProvider },
+    );
+
+    expect(result.current.data?.pageParams).toEqual([0]);
+    expect(api).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await result.current.fetchNextPage();
+    });
+    await waitFor(() =>
+      expect(result.current.data?.pageParams).toEqual([0, 10]),
+    );
+    expect(api).toHaveBeenLastCalledWith(
+      expect.objectContaining({ rawQuery: { take: 10, skip: 10 } }),
+    );
+
+    const otherStart = await client.posts.getPosts.fetchInfiniteQuery({
+      ...options,
+      initialPageParam: 10,
+    });
+
+    expect(otherStart.pageParams).toEqual([10]);
+    expect(api).toHaveBeenCalledTimes(3);
+    const firstKey = route.getQueryKey(
+      options.queryData({ pageParam: 0 }),
+      'infinite',
+    );
+    const secondKey = route.getQueryKey(
+      options.queryData({ pageParam: 10 }),
+      'infinite',
+    );
+    expect(client.getQueryData(firstKey)).toMatchObject({
+      pageParams: [0, 10],
+    });
+    expect(client.getQueryData(secondKey)).toMatchObject({ pageParams: [10] });
   });
 
   it('getQueryData should return already fetched data', async () => {
